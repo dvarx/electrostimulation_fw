@@ -40,6 +40,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
@@ -55,6 +57,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -65,12 +68,17 @@ static void MX_TIM1_Init(void);
 uint32_t period=430;
 uint8_t uart_rx_symbol;
 #define UART_BUFFER_SIZE 32
-uint8_t rx_buffer_ptr;
+uint8_t rx_buffer_counter;
 uint8_t rx_buffer[UART_BUFFER_SIZE];
 uint8_t tx_buffer[UART_BUFFER_SIZE];
 //commands & fsm
 const uint8_t CMD_START[]="STRT";
 const uint8_t CMD_STOP[]="STOP";
+//ADC related variables
+#define ADC_BUFFER_SIZE 1024
+uint32_t adc_val=0;
+uint16_t adc_buffer_counter=0;
+uint32_t adc_buffer[ADC_BUFFER_SIZE];
 /* USER CODE END 0 */
 
 /**
@@ -105,6 +113,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM2_Init();
   MX_TIM1_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   //setup pwm on Timer1 channel 1 and channel 2
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, period/2);
@@ -116,7 +125,7 @@ int main(void)
   //light up LED3
   HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
   //setup interrupt for Timer2
-  HAL_TIM_Base_Start_IT(&htim2);
+  HAL_ADC_Start_IT(&hadc1);HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -126,6 +135,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  //read a single character in interrupt mode
 	  HAL_UART_Receive_IT(&huart2,&uart_rx_symbol,1);
 	  //HAL_UART_Transmit(&huart2,uart_tx_buffer,5,100);
   }
@@ -184,6 +194,73 @@ void SystemClock_Config(void)
   /** Enable MSI Auto calibration
   */
   HAL_RCCEx_EnableMSIPLLMode();
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_8;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -387,26 +464,33 @@ static void MX_GPIO_Init(void)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	HAL_ADC_Start_IT(&hadc1);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 	//a command ends with the '\n' character
 	if(uart_rx_symbol=='\n'){
-		rx_buffer[rx_buffer_ptr]=0;
+		rx_buffer[rx_buffer_counter]=0;
 		process_command();
 		return;
 	}
 	else{
 		//write the received symbol to the buffer
-		rx_buffer[rx_buffer_ptr]=uart_rx_symbol;
+		rx_buffer[rx_buffer_counter]=uart_rx_symbol;
 	}
-	if(rx_buffer_ptr==UART_BUFFER_SIZE){
+	if(rx_buffer_counter==UART_BUFFER_SIZE){
 		//circular buffer
-		rx_buffer_ptr=0;
+		rx_buffer_counter=0;
 	}
 	else{
-		rx_buffer_ptr=rx_buffer_ptr+1;
+		rx_buffer_counter=rx_buffer_counter+1;
 	}
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
+	adc_buffer[adc_buffer_counter]=HAL_ADC_GetValue(&hadc1);
+	adc_buffer_counter=(adc_buffer_counter+1)%ADC_BUFFER_SIZE;
+	return;
 }
 
 void process_command(){
@@ -419,7 +503,7 @@ void process_command(){
 		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	}
 	//reset the buffer counter
-	rx_buffer_ptr=0;
+	rx_buffer_counter=0;
 }
 
 /* USER CODE END 4 */
