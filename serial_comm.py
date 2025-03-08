@@ -14,5 +14,7 @@ time.sleep(1)
 #send the STOP command
 ser.write(b"STOP\n")
 time.sleep(1)
-
+#send the FREQ Command; the format is as follows: FREQ\0XXXXXXXX\n where XXXXXXXX is the desired frequency in mHz
+ser.write(b"FREQ\0"+b"00000100\n")
+time.sleep(1)
 pass

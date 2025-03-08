@@ -61,14 +61,18 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define VCP_TX_Pin GPIO_PIN_2
 #define VCP_TX_GPIO_Port GPIOA
+#define ISENSE_Pin GPIO_PIN_3
+#define ISENSE_GPIO_Port GPIOA
+#define SHUTDOWN_Pin GPIO_PIN_10
+#define SHUTDOWN_GPIO_Port GPIOA
+#define LED_BLUE_Pin GPIO_PIN_12
+#define LED_BLUE_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
 #define VCP_RX_Pin GPIO_PIN_15
 #define VCP_RX_GPIO_Port GPIOA
-#define LD3_Pin GPIO_PIN_3
-#define LD3_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

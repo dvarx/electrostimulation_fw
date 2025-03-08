@@ -72,13 +72,17 @@ uint8_t rx_buffer_counter;
 uint8_t rx_buffer[UART_BUFFER_SIZE];
 uint8_t tx_buffer[UART_BUFFER_SIZE];
 //commands & fsm
+#define COMMAND_LENGTH 4
 const uint8_t CMD_START[]="STRT";
 const uint8_t CMD_STOP[]="STOP";
+const uint8_t CMD_FREQ[]="FREQ";
 //ADC related variables
 #define ADC_BUFFER_SIZE 1024
 uint32_t adc_val=0;
 uint16_t adc_buffer_counter=0;
 uint32_t adc_buffer[ADC_BUFFER_SIZE];
+//pwm frequency related variables
+uint32_t des_freq_mHz=0;
 /* USER CODE END 0 */
 
 /**
@@ -123,15 +127,16 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
   HAL_TIMEx_PWMN_Start(&htim1,TIM_CHANNEL_2);
   //light up LED3
-  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SHUTDOWN_GPIO_Port, SHUTDOWN_Pin, GPIO_PIN_RESET);
   //setup interrupt for Timer2
-  HAL_ADC_Start_IT(&hadc1);HAL_TIM_Base_Start_IT(&htim2);
+  HAL_ADC_Start_IT(&hadc1);
+  HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1){
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -311,7 +316,6 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
@@ -436,24 +440,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SHUTDOWN_Pin|LED_BLUE_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PA10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  /*Configure GPIO pins : SHUTDOWN_Pin LED_BLUE_Pin */
+  GPIO_InitStruct.Pin = SHUTDOWN_Pin|LED_BLUE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LD3_Pin */
-  GPIO_InitStruct.Pin = LD3_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD3_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -496,11 +490,17 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc){
 void process_command(){
 	if(strcmp(CMD_START,rx_buffer)==0){
 		//execute START command
-		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+		HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
+		HAL_GPIO_WritePin(SHUTDOWN_GPIO_Port, SHUTDOWN_Pin, GPIO_PIN_RESET);
 	}
 	if(strcmp(CMD_STOP,rx_buffer)==0){
 		//execute STOP command
-		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+		HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
+		HAL_GPIO_WritePin(SHUTDOWN_GPIO_Port, SHUTDOWN_Pin, GPIO_PIN_SET);
+	}
+	if(strcmp(CMD_FREQ,rx_buffer)==0){
+		//set the desired frequency
+		des_freq_mHz=atoi(rx_buffer+COMMAND_LENGTH+1);
 	}
 	//reset the buffer counter
 	rx_buffer_counter=0;
