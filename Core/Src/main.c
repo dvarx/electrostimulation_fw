@@ -65,7 +65,7 @@ static void MX_ADC1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //UART related definitions
-uint32_t period=430;
+uint32_t period=32000/2;
 uint8_t uart_rx_symbol;
 #define UART_BUFFER_SIZE 32
 uint8_t rx_buffer_counter;
@@ -75,7 +75,7 @@ uint8_t tx_buffer[UART_BUFFER_SIZE];
 #define COMMAND_LENGTH 4
 const uint8_t CMD_START[]="STRT";
 const uint8_t CMD_STOP[]="STOP";
-const uint8_t CMD_FREQ[]="FREQ";
+const uint8_t CMD_CNTR[]="CNTR";
 //ADC related variables
 #define ADC_BUFFER_SIZE 1024
 uint32_t adc_val=0;
@@ -288,9 +288,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 9086;
+  htim1.Init.Prescaler = 1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 430;
+  htim1.Init.Period = 32000/2;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -316,6 +316,7 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
+  sConfigOC.OCMode = TIM_OCMODE_PWM2;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
@@ -498,9 +499,13 @@ void process_command(){
 		HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin);
 		HAL_GPIO_WritePin(SHUTDOWN_GPIO_Port, SHUTDOWN_Pin, GPIO_PIN_SET);
 	}
-	if(strcmp(CMD_FREQ,rx_buffer)==0){
+	if(strcmp(CMD_CNTR,rx_buffer)==0){
 		//set the desired frequency
-		des_freq_mHz=atoi(rx_buffer+COMMAND_LENGTH+1);
+		uint32_t period=atoi(rx_buffer+COMMAND_LENGTH+1);
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, period/2);
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, period/2);
+		htim1.Init.Period = period;
+		HAL_TIM_PWM_Init(&htim1);
 	}
 	//reset the buffer counter
 	rx_buffer_counter=0;
