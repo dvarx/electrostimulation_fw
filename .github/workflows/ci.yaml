@@ -16,5 +16,5 @@ jobs:
 
       - name: Run build test within docker container
         run:  |
-              docker pull docker pull dvarx/electrostimulation_fw_build_24_04
-              docker run docker pull dvarx/electrostimulation_fw_build_24_04
+              docker pull dvarx/electrostimulation_fw_build_24_04
+              docker run dvarx/electrostimulation_fw_build_24_04
