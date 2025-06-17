@@ -35,3 +35,5 @@ RUN chmod +x /tmp/stm32cubeide-installer.sh && \
 
 WORKDIR /home/ubuntu/
 ADD ./build_test.sh ./build_test.sh
+
+CMD ["bash","/home/ubuntu/build_test.sh"]
